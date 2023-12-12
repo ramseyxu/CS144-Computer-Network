@@ -14,70 +14,82 @@ void DUMMY_CODE(Targs &&... /* unused */) {}
 
 using namespace std;
 
-ByteStream::ByteStream(const size_t capa)
-    : buffer(), capacity(capa), end_write(false), end_read(false), written_bytes(0), read_bytes(0) {}
+ByteStream::ByteStream(const size_t capacity )
+  : capacity_( capacity ), buffer( deque<string>() ), input_ended_( false )
+{}
+
+uint64_t ByteStream::copy_to_buffer( string data )
+{
+  if ( remaining_capacity() == 0 || data.size() == 0 )
+    return 0;
+  if ( data.size() > remaining_capacity() )
+    data = data.substr( 0, remaining_capacity() );
+  bytes_written_ += data.size();
+  buffer_size_ += data.size();
+  buffer.push_back( std::move( data ) );
+  return buffer.back().size();
+}
+
+void ByteStream::pop_output( const size_t len )
+{
+  if ( buffer_empty() )
+    return;
+  size_t pop_len = min( len, buffer_size_ );
+  size_t unpopped_len = pop_len;
+  while ( unpopped_len > 0 ) {
+    if ( buffer.front().size() > unpopped_len ) {
+      buffer.front() = buffer.front().substr( unpopped_len );
+      unpopped_len = 0;
+    } else {
+      unpopped_len -= buffer.front().size();
+      buffer.pop_front();
+    }
+  }
+  bytes_read_ += pop_len;
+  buffer_size_ -= pop_len;
+}
 
 size_t ByteStream::write(const string &data) {
-    size_t canWrite = capacity - buffer.size();
-    size_t realWrite = min(canWrite, data.length());
-    for (size_t i = 0; i < realWrite; i++) {
-        buffer.push_back(data[i]);
-    }
-    written_bytes += realWrite;
-    return realWrite;
+    return copy_to_buffer( data );
 }
 
 //! \param[in] len bytes will be copied from the output side of the buffer
 string ByteStream::peek_output(const size_t len) const {
-    size_t canPeek = min(len, buffer.size());
+    size_t canPeek = min(len, buffer_size_);
     string out = "";
-    for (size_t i = 0; i < canPeek; i++) {
-        out += buffer[i];
+    while (canPeek > 0) {
+        if (buffer.front().size() > canPeek) {
+            out += buffer.front().substr(0, canPeek);
+            canPeek = 0;
+        } else {
+            out += buffer.front();
+            canPeek -= buffer.front().size();
+        }
     }
     return out;
-}
-
-//! \param[in] len bytes will be removed from the output side of the buffer
-void ByteStream::pop_output(const size_t len) {
-    if (len > buffer.size()) {
-        set_error();
-        return;
-    }
-    for (size_t i = 0; i < len; i++) {
-        buffer.pop_front();
-    }
-    read_bytes += len;
 }
 
 //! Read (i.e., copy and then pop) the next "len" bytes of the stream
 //! \param[in] len bytes will be popped and returned
 //! \returns a string
 std::string ByteStream::read(const size_t len) {
-    string out = "";
-    if (len > buffer.size()) {
-        set_error();
-        return out;
-    }
-    for (size_t i = 0; i < len; i++) {
-        out += buffer.front();
-        buffer.pop_front();
-    }
-    read_bytes += len;
+    string out = peek_output(len);
+    pop_output(len);
     return out;
 }
 
-void ByteStream::end_input() { end_write = true; }
+void ByteStream::end_input() { input_ended_ = true; }
 
-bool ByteStream::input_ended() const { return end_write; }
+bool ByteStream::input_ended() const { return input_ended_; }
 
-size_t ByteStream::buffer_size() const { return buffer.size(); }
+size_t ByteStream::buffer_size() const { return buffer_size_; }
 
-bool ByteStream::buffer_empty() const { return buffer.empty(); }
+bool ByteStream::buffer_empty() const { return buffer_size_ == 0; }
 
-bool ByteStream::eof() const { return buffer.empty() && end_write; }
+bool ByteStream::eof() const { return buffer.empty() && input_ended_; }
 
-size_t ByteStream::bytes_written() const { return written_bytes; }
+size_t ByteStream::bytes_written() const { return bytes_written_; }
 
-size_t ByteStream::bytes_read() const { return read_bytes; }
+size_t ByteStream::bytes_read() const { return bytes_read_; }
 
-size_t ByteStream::remaining_capacity() const { return capacity - buffer.size(); }
+size_t ByteStream::remaining_capacity() const { return capacity_ - buffer.size(); }

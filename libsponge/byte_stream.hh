@@ -3,6 +3,7 @@
 
 #include <deque>
 #include <string>
+using namespace std;
 //! \brief An in-order byte stream.
 
 //! Bytes are written on the "input" side and read from the "output"
@@ -10,19 +11,17 @@
 //! and then no more bytes can be written.
 class ByteStream {
   private:
-    // Your code here -- add private members as necessary.
+  size_t capacity_;
 
-    // Hint: This doesn't need to be a sophisticated data structure at
-    // all, but if any of your tests are taking longer than a second,
-    // that's a sign that you probably want to keep exploring
-    // different approaches.
-    std::deque<char> buffer;
-    size_t capacity;
-    bool end_write;
-    bool end_read;
-    size_t written_bytes;
-    size_t read_bytes;
-    bool _error{};  //!< Flag indicating that the stream suffered an error.
+  deque<string> buffer;
+
+  size_t buffer_size_ = 0, bytes_written_ = 0, bytes_read_ = 0;
+
+  uint64_t copy_to_buffer( string data );
+
+  bool input_ended_ = false; //!< Flag indicating that the stream input has ended.
+
+  bool error_ {}; //!< Flag indicating that the stream suffered an error.
 
   public:
     //! Construct a stream with room for `capacity` bytes.
@@ -43,7 +42,7 @@ class ByteStream {
     void end_input();
 
     //! Indicate that the stream suffered an error.
-    void set_error() { _error = true; }
+    void set_error() { error_ = true; }
     //!@}
 
     //! \name "Output" interface for the reader
@@ -64,7 +63,7 @@ class ByteStream {
     bool input_ended() const;
 
     //! \returns `true` if the stream has suffered an error
-    bool error() const { return _error; }
+    bool error() const { return error_; }
 
     //! \returns the maximum amount that can currently be read from the stream
     size_t buffer_size() const;
