@@ -92,4 +92,4 @@ size_t ByteStream::bytes_written() const { return bytes_written_; }
 
 size_t ByteStream::bytes_read() const { return bytes_read_; }
 
-size_t ByteStream::remaining_capacity() const { return capacity_ - buffer.size(); }
+size_t ByteStream::remaining_capacity() const { return capacity_ - buffer_size_; }
